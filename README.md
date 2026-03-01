@@ -70,6 +70,12 @@ The raw data required significant cleaning and validation work:
 | Matplotlib / Plotly | Visualization |
 | OpenStreetMap | Road network data |
 | Scrollama / D3.js | Interactive scrollytelling |
+| Jupyter Notebook | Development environment |
+| python-Levenshtein | Speed optimization for fuzzy matching |
+| math (haversine) | Distance calculations |
+| GADM | Administrative boundary shapefiles |
+| geoBoundaries | Alternative boundary data |
+
 
 ## Project Structure
 
@@ -90,9 +96,7 @@ The raw data required significant cleaning and validation work:
 
 ## Key Findings
 
-# 🏥 Ghana Healthcare Accessibility Analysis — Full Project Log
-
-## Phase 0 — Project Scoping & Setup
+### Phase 0 — Project Scoping & Setup
 
 ### Defining the Project Vision
 - Went through the project's six angles of analysis: geographic access, coverage ratios, facility type gaps, urban vs rural, ownership patterns, and regional inequality
@@ -125,7 +129,7 @@ The raw data required significant cleaning and validation work:
 
 ---
 
-## Phase 1 — Data Preparation & Cleaning
+### Phase 1 — Data Preparation & Cleaning
 
 ### 1.1 Duplicate Check
 - User challenged the assumption that duplicates existed in the data
@@ -210,7 +214,7 @@ The raw data required significant cleaning and validation work:
 
 ---
 
-## Phase 1.5 — Geospatial Validation (Day 2)
+### Phase 1.5 — Geospatial Validation (Day 2)
 
 ### 1.7 Investigating Distance Outliers
 - Found 73 facilities more than 50km from their district centroid
@@ -332,7 +336,7 @@ Broke the 85 mismatches into categories:
 
 ---
 
-## Current Status
+### Current Status
 
 ✅ **Phase 1 — COMPLETE**
 
@@ -351,23 +355,6 @@ The master dataset is clean, validated, and ready for analysis:
 🔜 **Phase 4 — Composite Accessibility Index**
 
 🔜 **Phase 5 — Scrollytelling Visualization**
-
----
-
-## Tools & Libraries Used So Far
-
-| Tool | Purpose |
-|------|---------|
-| Python 3 | Core language |
-| Jupyter Notebook | Development environment |
-| pandas | Data manipulation, merging, cleaning |
-| geopandas | Geospatial operations, spatial joins |
-| shapely | Polygon creation (GUAN district) |
-| fuzzywuzzy | Fuzzy string matching for district names |
-| python-Levenshtein | Speed optimization for fuzzy matching |
-| math (haversine) | Distance calculations |
-| GADM | Administrative boundary shapefiles |
-| geoBoundaries | Alternative boundary data |
 
 ---
 
