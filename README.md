@@ -335,6 +335,225 @@ Broke the 85 mismatches into categories:
 - Saved as `master_dataset_v2.csv`
 
 ---
+# Phase 2 — Exploratory Data Analysis
+
+With the master dataset cleaned, validated, and ready (9,978 facilities across 261 districts and 16 regions), I began exploring the data to understand the landscape of healthcare infrastructure in Ghana before diving into the deeper accessibility modelling.
+
+---
+
+## Facility Type Distribution
+
+The first question I asked was simple: what types of healthcare facilities do we actually have in Ghana?
+
+The answer was immediately revealing. Out of 9,978 facilities, 6,732 (67%) are CHPS compounds — Community-based Health Planning and Services posts. These are the most basic tier of healthcare delivery in Ghana. They are staffed by community health nurses and can handle vaccinations, malaria treatment, family planning, basic wound care, and health education. They cannot perform surgery, handle complicated pregnancies, do blood transfusions, or treat serious conditions.
+
+Beyond CHPS, there are 1,215 health centres, 929 clinics, 581 hospitals, 248 maternity homes, 145 district hospitals, 93 polyclinics, 10 teaching hospitals, 10 regional hospitals, 8 university hospitals, 5 psychiatric hospitals, and 2 leprosaria. I grouped these into three tiers for analysis: Basic (CHPS), Mid (Health Centre, Clinic, Maternity Home), and Advanced (Hospital, District Hospital, Polyclinic, Regional Hospital, Teaching Hospital, University Hospital, Psychiatric Hospital, Leprosarium).
+
+The implication is significant: while Ghana appears to have nearly 10,000 healthcare facilities, the vast majority can only handle basic care. The country has just 10 regional hospitals and 10 teaching hospitals for a population of over 30 million people.
+
+---
+
+## Regional Overview
+
+Next, I looked at how facilities are distributed across Ghana's 16 regions, combining facility counts with population data to calculate meaningful ratios.
+
+Ashanti region has the highest number of facilities at 1,645, which makes sense as it is one of the most populated regions with 5.5 million people. Greater Accra follows with 1,464 facilities serving 6.2 million people. At the other end, North East region has the fewest facilities at just 138 for a population of 659,000.
+
+However, raw facility counts are misleading because regions have vastly different populations. To compare fairly, I calculated the number of facilities per 10,000 people. This metric tells us: for every 10,000 people in a region, how many facilities are available to serve them? A higher number means better coverage.
+
+Upper West region emerged as the best served with 5.69 facilities per 10,000 people, despite having relatively few total facilities (513). This is because its population is small (901,000). Central region turned out to be the worst served at just 2.08 per 10,000 people, followed closely by North East at 2.09. Greater Accra, despite having the second-highest number of facilities, only manages 2.35 per 10,000 due to its massive population.
+
+I also examined the average distance from facilities to their district centroids as a rough proxy for how spread out the healthcare infrastructure is. Savannah region stands out dramatically with a 32km average distance — seven times further than Greater Accra's 4.5km. This means that even if Savannah had enough facilities per person, people would still struggle to physically reach them because of how spread out everything is.
+
+The combined picture is sobering. North East gets hit on both sides — few facilities per person AND long distances. Savannah has somewhat reasonable ratios but terrible distances. Greater Accra has short distances but not enough facilities for its huge population. Upper West looks good on paper for ratios, but distances are still high at 15.7km.
+
+---
+
+## District-Level Analysis
+
+Zooming in from regions to districts revealed even more extreme inequality.
+
+The best-served district is North East Gonja in the Savannah region with 16.24 facilities per 10,000 people. The worst-served is GA South in Greater Accra with just 0.37 per 10,000 people. That is a 44-fold difference between the best and worst districts in the same country.
+
+GA South is particularly alarming: it has a population of 350,000 people — larger than many regional capitals — and not a single hospital. If someone in GA South needs surgery or emergency care, they must travel to a neighbouring district.
+
+---
+
+## Facility Type Gaps
+
+I then investigated which districts lack advanced healthcare facilities entirely — meaning they have no hospital, no district hospital, no polyclinic, nothing beyond basic and mid-level facilities.
+
+The finding was stark: 38 districts, representing 15% of all districts in Ghana, have zero advanced healthcare facilities. People in these districts have no local access to surgery, emergency obstetric care, blood transfusions, or specialist treatment. For any serious medical need, they must travel to another district entirely.
+
+These 38 districts are concentrated in specific regions. Savannah has 2 out of 7 districts (28.6%) without any hospital. Eastern has 8 out of 33 (24.2%). Oti, Western North, and Volta each have over 22% of their districts without hospitals.
+
+Even Greater Accra, the capital region, is not exempt — GA South, one of the most populated districts in the country, has no hospital.
+
+---
+
+## Ownership Patterns
+
+I examined who owns and operates Ghana's healthcare facilities, categorized as Government, Private, CHAG (Christian Health Association of Ghana), Quasi-Government, Other Faith-Based, and Mines.
+
+Government facilities dominate at 7,972 (80% of all facilities). Private facilities account for 1,517 (15%), and CHAG contributes 365 (4%).
+
+The regional distribution of private healthcare tells a clear story about investment patterns. Greater Accra has the highest proportion of private facilities at 35.6% — where there is money and population density, private healthcare fills gaps. Ashanti follows at 19.6% and Western at 16.5%.
+
+At the other extreme, Upper West has only 2.7% private facilities, Savannah has 3.3%, and Oti has 4.0%. These are precisely the regions that are already worst served by public infrastructure. The implication is clear: the regions that need the most help are the ones where the private sector sees no commercial incentive to invest. If the government does not provide healthcare in these areas, nobody will.
+
+---
+
+## Urban vs Rural Comparison
+
+Finally, I compared healthcare access between urban and rural areas by classifying districts as "Mostly Urban" (50% or more urban population) or "Mostly Rural" (less than 50% urban).
+
+The results reveal a paradox. Rural areas actually have more facilities per person — 3.73 per 10,000 people compared to 2.83 in urban areas. This is because many CHPS compounds are deployed across rural communities.
+
+However, the quality gap is significant. In rural areas, only 4.8% of facilities are in the Advanced tier (hospitals). In urban areas, 12.7% are Advanced. So rural Ghanaians are nearly three times less likely to have access to a hospital compared to their urban counterparts.
+
+And when rural people do need to reach a facility, they travel nearly twice as far — 14.4km average distance compared to 7.6km in urban areas.
+
+The summary: rural Ghana has more healthcare posts scattered around, but they are overwhelmingly basic-level facilities. When someone in a rural district needs real medical care — surgery, emergency treatment, specialist consultation — they face longer distances to reach a facility that probably does not exist in their own district.
+
+# Phase 3 — E2SFCA Spatial Accessibility Analysis
+
+The exploratory analysis in Phase 2 revealed significant inequality in healthcare distribution across Ghana. However, those findings relied on centroid-based distances — a rough measure that assumes people live at the centre of their district. To understand the true accessibility picture, I needed to model actual travel times using real road networks and real population locations. This is where the Enhanced Two-Step Floating Catchment Area (E2SFCA) method comes in.
+
+---
+
+## What is the E2SFCA and Why Does It Matter?
+
+The E2SFCA is a gold-standard method in spatial epidemiology for measuring healthcare accessibility. Unlike simple distance metrics, it answers two questions simultaneously: can people physically reach a facility, and when they get there, will there be enough capacity to serve them?
+
+The method works in two steps. In the first step, for every healthcare facility, I calculate how many people live within a reasonable travel time and compute a ratio — one facility divided by the weighted population it serves. A facility surrounded by a large population gets a low ratio (it is stretched thin), while a facility in a less populated area gets a higher ratio (it is less crowded).
+
+In the second step, for every population point, I look at all the facilities reachable within the travel time cutoff and add up their ratios, weighted by distance. A population point that can reach many uncrowded facilities gets a high accessibility score. A point that can only reach one overcrowded facility, or none at all, gets a low or zero score.
+
+The key advantage over centroid-based analysis is threefold. First, it uses real roads to calculate travel time, not straight-line distance. A facility might be 5km away as the crow flies but 20km by road because of terrain or missing infrastructure. Second, it accounts for competition — a hospital might be nearby but overwhelmed by the population it serves. Third, it uses population density data to model where people actually live, not just the district centre.
+
+---
+
+## The Three Input Datasets
+
+The E2SFCA requires three datasets working together.
+
+**Healthcare Facilities:** The master dataset of 9,978 facilities with validated coordinates, which I cleaned and validated in Phase 1.
+
+**Population Density:** I downloaded a WorldPop population density raster for Ghana (`gha_pd_2020_1km_UNadj.tif`) at 1km resolution. This divides Ghana into a grid of 1km squares, each containing an estimate of how many people live there. I extracted 278,001 grid cells where people live, with a total WorldPop estimate of 36,950,968. Since the WorldPop data is from 2020 and overestimates compared to the 2021 Ghana census count of 30,832,019, I normalized the population using a scaling factor of 0.8344 so the spatial distribution comes from WorldPop but the total matches the census.
+
+**Road Network:** I downloaded OpenStreetMap road data for Ghana from Geofabrik (`ghana-latest-free.shp.zip`), containing 373,884 road segments with 28 different road types.
+
+---
+
+## Road Network Analysis — A Critical Discovery
+
+Before building the E2SFCA model, I investigated the road network to understand what types of roads exist across Ghana. This turned out to be one of the most important steps in the entire project.
+
+I assigned each road segment to a district using spatial joins against GADM district polygons, then categorised all 28 road types into five groups: Major Roads (motorway, trunk, primary), Connecting Roads (secondary, tertiary), Urban/Town Roads (residential, service, living street), Rural/Unpaved (track, unclassified), and Walking/Non-vehicle (path, footway, pedestrian, steps, cycleway, bridleway).
+
+The national breakdown showed that 79.1% of road segments are Urban/Town Roads, 10.9% are Rural/Unpaved, 6.7% are Walking/Non-vehicle paths, 2.1% are Connecting Roads, and 1.2% are Major Roads.
+
+But the regional breakdown told a completely different story. In Oti region, 35.3% of all roads are walking paths. In Upper East, it is 28.5%. In Savannah, 21% are walking paths and another 39.8% are rural/unpaved — meaning roughly 60% of the road infrastructure in Savannah is either walking paths or dirt tracks. Compare this to Greater Accra where only 2.9% of roads are walking paths.
+
+At the district level, the disparity is even more extreme. Tempane district in Upper East has 82.9% walking paths. Krachi Nchumuru in Oti has 70.3%. Zabzugu in Northern has 64.1%. East Gonja in Savannah has 63.0%.
+
+This discovery had a direct impact on the modelling approach. An initial version of the analysis had excluded all non-driveable roads (paths, footways, steps), removing about 25,000 road segments. But this disproportionately cut off the very regions that are already the most underserved. In Tempane, removing walking paths would erase 82.9% of the road network, making it appear as if people there have almost no way to reach healthcare — when in reality, they do have paths, they just walk.
+
+I decided to include all 28 road types in the analysis and assign appropriate speeds to each.
+
+---
+
+## Ghana-Corrected Speed Assignments
+
+Standard international speed assumptions for road types are too generous for Ghana. A trunk road in the Savannah region does not allow 80 km/h travel — it passes through towns with speed bumps, police barriers, and heavy foot traffic. Link roads are bottleneck junctions, not cruising zones. Based on research into Ghana-specific road conditions, I assigned corrected speeds:
+
+For major roads: motorway at 80 km/h (reduced from the typical 100-120), trunk at 60 km/h, primary at 45 km/h, and all link roads at 25 km/h (reduced significantly from typical assumptions, as these are transitional spaces).
+
+For connecting roads: secondary at 40 km/h, tertiary at 30 km/h.
+
+For urban roads: residential at 25 km/h, living street and service at 15 km/h.
+
+For rural/unpaved: unclassified at 20 km/h, track at 15 km/h, graded tracks from 5-15 km/h depending on condition. These rural speeds were validated as realistic — many researchers make the mistake of assigning 40 km/h to laterite roads that are realistically impassable at those speeds, especially in the rainy season.
+
+For walking paths: 4 km/h for paths, footways, and pedestrian areas, 3 km/h for steps. These are conservative upper limits — for a sick patient or someone carrying a child, actual speed would be lower.
+
+Each road type was also assigned one of five transport mode labels for explainability: major_road, connecting_road, urban_road, rural_unpaved, or walking. This classification allows me to break down any journey into its component parts and say, for example, "56% of this journey is on foot."
+
+---
+
+## Building the Road Network Graph
+
+With speeds and transport modes assigned, I built a network graph — a computational structure that represents all road connections in Ghana and allows the computer to calculate the fastest route between any two points.
+
+Each road segment was broken into its constituent coordinate pairs, and for each pair, I calculated the real-world distance using latitude/longitude offsets with cosine correction for Ghana's position near the equator. I then converted distance to travel time using the assigned speed.
+
+The resulting graph contained 4,374,664 nodes (intersection and waypoints) and 4,542,327 edges (road connections). Each edge stores two pieces of information: the travel time in minutes (used for routing) and the transport mode label (used for journey explainability).
+
+I checked the connectivity of the network and found 1,180 disconnected components. The largest component contained 4,286,670 nodes, representing 98.0% of the entire network. The remaining 2% consisted of thousands of tiny disconnected fragments — driveways not snapped to the main road, walking paths in parks that do not touch any street, remote tracks that fade out before connecting to the main network. These are data artefacts in the OSM data, not real navigable infrastructure. I dropped them and retained only the largest connected component to ensure every calculation in the E2SFCA is based on a real, navigable path.
+
+For computational speed, I converted the network from NetworkX (which was too slow for the scale of this analysis) to igraph. Testing confirmed that igraph could process 50 facilities simultaneously in about 124 seconds, bringing the estimated total computation time down to approximately 7 hours compared to the 79 days that a naive approach would have required.
+
+---
+
+## Snapping Facilities and Population Points to the Network
+
+Before running the E2SFCA, I needed to connect every facility and every population grid cell to the road network. I built a spatial index (KD-Tree) over all 4.3 million road nodes, then for each of the 9,978 facilities and 278,001 population points, I found the nearest road node. This "snapping" step ensures that the model can calculate travel times from any population point to any facility via the road network.
+
+---
+
+## E2SFCA Parameters
+
+**Cutoff: 120 minutes.** The standard in many studies is 60 minutes, but this is misleadingly tight for Ghana. Data from the Ghana Statistical Service and recent health surveys show that in regions like Oti, Savannah, and parts of the North, it is common for a significant portion of the population to travel more than two hours to reach a facility. The Lancet Commission on Global Surgery specifically recommends measuring population access within a 2-hour window for surgical and maternal emergency care. Using a 60-minute cutoff would effectively render these populations invisible in the analysis — showing them as having zero access when they are in fact seeking and receiving care, albeit with enormous difficulty. I extended the cutoff to 120 minutes to capture this rural reality.
+
+**Decay function.** Rather than treating access as binary (inside 120 minutes = access, outside = no access), I used a distance decay function that weights facilities based on how far away they are. A facility 5 minutes away is far more useful than one 90 minutes away, and the decay function captures this:
+
+- 0 to 15 minutes: weight 1.0 (immediate, optimal access)
+- 16 to 30 minutes: weight 0.8 (good access, within Ghana Health Service target for CHPS)
+- 31 to 60 minutes: weight 0.5 (moderate access, significant effort required)
+- 61 to 120 minutes: weight 0.2 (marginalized access, common in rural Ghana)
+- Over 120 minutes: weight 0.0 (no access)
+
+This decay function was calibrated to reflect the Ghanaian context. The previous version used a sharper decay (0.1 for 30-60 minutes, 0.0 above 60 minutes) which unfairly penalised rural communities where 35-45 minute travel times are the norm, not an exception.
+
+---
+
+## Running the E2SFCA
+
+The computation processed all 9,978 facilities in batches of 50, with progress tracking at every batch and automatic saves every 25 batches to protect against interruptions. The total computation took 14.9 hours.
+
+For each batch, the model calculated the travel time from every facility in the batch to every node in the road network. It then identified which population points fall within the 120-minute catchment, applied the decay weights, and computed both the facility ratios (Step 1) and the population accessibility scores (Step 2).
+
+---
+
+## Results
+
+The E2SFCA produced an accessibility score for each of the 278,001 population grid cells in Ghana.
+
+**268,347 population points** (96.5%) have some level of access to healthcare — meaning at least one facility is reachable within 120 minutes via the road network.
+
+**9,654 population points** (3.5%) have absolutely no access within 120 minutes. These are grid cells where people live but cannot reach any healthcare facility within two hours using any available road or path.
+
+In terms of people, **30,621,336** (99.3% of the population) have some access, while **210,680 people** (0.7%) have no access at all. While 0.7% may sound small, these are over 200,000 real people — entire communities that are completely cut off from the healthcare system.
+
+---
+
+## Comparison with the Initial Run
+
+I had previously run an earlier version of the E2SFCA using a 60-minute cutoff and only driveable roads (excluding walking paths). That version found 261,308 population points with access and 16,693 with no access.
+
+The updated version — with all road types included and a 120-minute cutoff — found 268,347 with access and 9,654 with no access. By including walking paths and extending the catchment, approximately 7,000 additional population points were brought into the accessibility picture. These are communities that do have some access to healthcare, but only via footpaths or after travelling more than an hour. The earlier model had incorrectly classified them as having zero access.
+
+---
+
+## Files Produced
+
+| File | Description |
+|------|-------------|
+| `e2sfca_v2_scores.csv` | Accessibility scores for all 278,001 population points |
+| `e2sfca_v2_complete.pkl` | Full results backup (pickle format) |
+| `e2sfca_v2_progress.pkl` | Checkpoint file from computation |
+
+---
 
 ### Current Status
 
@@ -348,9 +567,23 @@ The master dataset is clean, validated, and ready for analysis:
 - Zero facilities over 100km from centroid
 - Only missing values are rural data for 11 fully urban districts (correct behavior)
 
-🔜 **Phase 2 — Exploratory Analysis** (Next)
+🔜 **Phase 2 — Exploratory Analysis - COMPLETE**
 
-🔜 **Phase 3 — Six Accessibility Analyses**
+## Summary of Key Findings from phase 2
+
+- 67% of all healthcare facilities in Ghana are basic CHPS compounds
+- Central region has the worst facility-to-population ratio at 2.08 per 10,000 people
+- Savannah region has the worst average distance at 32km — 7x further than Greater Accra
+- 44x gap between the best-served district (North East Gonja) and the worst-served (GA South)
+- GA South has 350,000 people and no hospital
+- 38 districts (15%) have zero hospitals of any kind
+- Private healthcare is concentrated in Greater Accra (35.6%) and virtually absent in Upper West (2.7%), Savannah (3.3%), and Oti (4.0%)
+- Rural areas have more facilities per person but only 4.8% are hospitals vs 12.7% in urban areas
+- Rural people travel nearly twice as far to reach healthcare (14.4km vs 7.6km)
+
+These findings established the foundation for the deeper spatial accessibility analysis using the Enhanced Two-Step Floating Catchment Area (E2SFCA) method, which would go beyond centroid-based distance estimates to model actual travel times across Ghana's road network.
+
+🔜 **Phase 3 — Six Accessibility Analyses - COMPLETE**
 
 🔜 **Phase 4 — Composite Accessibility Index**
 
