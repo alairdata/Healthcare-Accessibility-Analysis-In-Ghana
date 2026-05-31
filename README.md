@@ -545,15 +545,314 @@ The updated version — with all road types included and a 120-minute cutoff —
 
 ---
 
-## Files Produced
+Travel Time Analysis & Journey Breakdown
+
+### Nearest Facility Travel Times — All 7 Facility Groupings
+
+With the E2SFCA complete, the next step was to answer a more direct question: how long does it actually take each person in Ghana to reach the nearest healthcare facility — and how does that change depending on what type of care they need?
+
+I defined seven facility groupings for this analysis:
+
+| Grouping | Facilities | What it includes |
+|----------|-----------|-----------------|
+| Any | 9,978 | All facilities |
+| CHPS | 6,733 | CHPS compounds only |
+| Maternity | 6,981 | CHPS + maternity homes |
+| Outpatient | 2,237 | Clinics + health centres + hospitals |
+| Emergency | 726 | All hospitals |
+| Specialist | 28 | Regional + teaching + university hospitals |
+| Psychiatric | 5 | Psychiatric hospitals only |
+
+For each of the 278,001 population grid cells, I calculated the travel time to the nearest facility in each grouping using a KD-Tree spatial index to identify the 10 nearest candidates by straight-line distance, then OSRM (Open Source Routing Machine) to compute exact road network travel times. OSRM was run locally via Docker using the latest Ghana OSM extract.
+
+The computation used a two-stage approach: first, the KD-Tree identified the 10 nearest candidates to avoid routing to every facility in the country; then OSRM confirmed the true fastest route among those candidates via road. This reduced routing calls from billions to approximately 2.78 million while preserving accuracy.
+
+Total computation time: approximately 4.5 hours across all 7 groupings. Zero failures across all 278,001 population points for all groupings.
+
+---
+
+### Key Findings — Travel Time by Facility Type
+
+The results revealed a dramatic collapse in accessibility as the required level of care increases:
+
+| Facility Type | Within 30 min | Within 60 min | Median travel time |
+|---------------|---------------|---------------|--------------------|
+| Any facility | 90.6% | 97.6% | 6.8 min |
+| CHPS | 89.8% | 97.5% | 7.8 min |
+| Maternity | 89.8% | 97.5% | 7.8 min |
+| Outpatient | 72.6% | 91.9% | 17.3 min |
+| Emergency | 42.1% | 74.6% | 35.3 min |
+| Specialist | 6.6% | 20.9% | 109.4 min |
+| Psychiatric | 0.9% | 3.5% | 265.5 min |
+
+The headline statistic — that 90.6% of Ghanaians can reach a healthcare facility within 30 minutes — is technically accurate. But it is deeply misleading. That facility is almost always a CHPS compound: a single room, one community health worker, limited supplies, no doctor, no surgery, no emergency equipment.
+
+The moment you need real care, the numbers collapse. Only 42.1% of Ghanaians can reach emergency care within 30 minutes. The median Ghanaian is 35 minutes from the nearest hospital — already past the internationally recognised golden hour for emergency intervention. For specialist care, the median travel time is 109 minutes. For psychiatric care, it is 265 minutes — over four hours. Only 0.9% of the population can reach a psychiatric hospital within 30 minutes.
+
+This is the central finding of the project: Ghana's headline accessibility statistic conceals a catastrophic gap between primary care proximity and meaningful healthcare access.
+
+---
+
+### Worst Districts for Emergency Access
+
+Five districts stand out as the most critically underserved for emergency care:
+
+| District | Region | Avg emergency travel time | % within 30 min |
+|----------|--------|--------------------------|-----------------|
+| East Gonja | Savannah | 139 min | 0.0% |
+| Kwahu Afram Plains South | Eastern | 129 min | 1.1% |
+| North Gonja | Savannah | 108 min | 0.0% |
+| Sekyere Afram Plains North | Ashanti | 95 min | 0.0% |
+| Wa East | Upper West | 92 min | 2.2% |
+
+East Gonja in the Savannah region is the most severe case. Not a single person in the entire district can reach emergency care within 30 minutes. The average journey to the nearest hospital takes 139 minutes — over two hours — through a road network that is 79.5% dirt tracks and unpaved roads.
+
+---
+
+### Journey Breakdown — Road Type Analysis
+
+Knowing travel times tells us how long the journey takes. But it does not tell us what that journey is actually like. To answer this, I traced the route from every population point to its nearest facility and broke the journey down by road type.
+
+Using the OSRM route API with geometry annotations, I retrieved the full route geometry for all 278,001 population-to-facility journeys. For each route, I matched every segment of the path to the nearest road in the OSM shapefile using a pre-built KD-Tree on road midpoints. This spatial matching allowed me to assign each segment of each journey to one of five road type categories: major road, connecting road, urban road, rural unpaved, or walking.
+
+The total time attributed to each road type per journey was then summed to give a breakdown of how many minutes — and what percentage — of the average journey happens on each road type.
+
+Total computation time: approximately 85 minutes for all 278,001 points. Zero routing failures.
+
+---
+
+### Key Findings — Journey Breakdown
+
+| Road Type | Average time | % of journey |
+|-----------|-------------|--------------|
+| Rural unpaved | 14.3 min | 64.8% |
+| Connecting road | 5.0 min | 22.8% |
+| Major road | 2.2 min | 10.0% |
+| Urban road | 0.5 min | 2.3% |
+| Walking | ~0 min | ~0% |
+
+Nearly two thirds of the average Ghanaian's journey to a healthcare facility — 64.8% — happens on dirt tracks and unpaved rural roads. These are roads where vehicles travel at 5 to 20 km/h. Roads that become impassable in the rainy season. Roads that no ambulance will travel down at night.
+
+The road speed assignments used in this analysis reflect Ghana-specific conditions:
+
+| Road category | Average speed |
+|--------------|---------------|
+| Major road | 45 km/h |
+| Connecting road | 28 km/h |
+| Urban road | 20 km/h |
+| Rural unpaved | 11 km/h |
+| Walking | 4 km/h |
+
+At the district level, the variation in road quality is extreme. Ayawaso Central in Greater Accra spends 100% of its average journey on urban roads, with zero dirt road time. Akatsi North in the Volta Region spends 88.1% of its journey on dirt roads. Tatale Sanguli in Northern Region: 87.3%. These are not just numbers — they represent the physical reality of what it means to be sick in different parts of Ghana.
+
+---
+
+### Files Produced — Phase 3
 
 | File | Description |
 |------|-------------|
-| `e2sfca_v2_scores.csv` | Accessibility scores for all 278,001 population points |
-| `e2sfca_v2_complete.pkl` | Full results backup (pickle format) |
-| `e2sfca_v2_progress.pkl` | Checkpoint file from computation |
+| `nearest_facility_times.csv` | Travel times to all 7 facility groupings for 278,001 population points |
+| `journey_breakdown.csv` | Road type breakdown for all 278,001 population points |
+| `master_population_data.csv` | Master file — 278,001 rows × 25 columns combining all Phase 3 outputs with district and region labels |
+| `travel_time_summary.csv` | National summary statistics by facility grouping |
+
+The master population dataset (`master_population_data.csv`) is the single most complete record produced by this project. Each row represents one 1km population grid cell and contains: coordinates, region and district assignment, population count, travel times to all 7 facility types, nearest facility name and type, journey breakdown by all 5 road categories, and the E2SFCA accessibility score.
 
 ---
+
+# Phase 4 — Composite Accessibility Index
+
+With all the computational phases complete, the final analytical step was to synthesise everything into a single, transparent, and defensible accessibility score for each of Ghana's 260 districts and 16 regions.
+
+The challenge with composite scoring is that it is easy to build an index that looks rigorous but masks its assumptions. I wanted every weight, every threshold, and every methodological decision to be openly documented — so that a policymaker who disagrees with a weighting can understand exactly what they are disagreeing with and why.
+
+The framework went through multiple iterations, including a second-opinion review with another AI model (Gemini), before arriving at the final design described here.
+
+---
+
+## The Two-Score Framework
+
+The most important methodological decision was to separate the composite score into two fundamentally different sub-scores rather than collapsing everything into one number.
+
+Healthcare accessibility has two distinct barriers:
+
+**The mobility barrier** — Can people physically get to a facility? This is about travel time and road conditions.
+
+**The capacity barrier** — When people arrive, is there enough to serve them? This is about supply relative to demand.
+
+These two things are not the same. A district could have excellent road access to a nearby hospital that is completely overwhelmed with patients. A different district could have poor roads to a well-resourced facility with surplus capacity. Both have an accessibility problem, but the nature of the problem — and the policy solution — is completely different.
+
+Mixing these two dimensions into a single weighted average would obscure which problem a district is actually facing. So I kept them separate.
+
+---
+
+## Score 1 — Journey Access Score (0–100)
+
+**What it answers:** *How physically accessible is healthcare for people in this district?*
+
+The Journey Access Score is built entirely from travel time data. It does not include road quality as a separate component — because road conditions are already embedded in the travel times themselves. OSRM assigns slow speeds to dirt tracks and walking paths, which means a journey on unpaved roads already takes longer and therefore falls into a worse time band. Including road quality separately would be double-counting the same barrier.
+
+The score has three components:
+
+**Emergency access — 50% weight**
+
+Emergency care is life or death. Missing the 30-minute golden hour for trauma, stroke, or obstetric emergency has direct mortality consequences. Emergency access carries the largest weight in the score.
+
+Time bands:
+
+| Band | Score |
+|------|-------|
+| Within 30 min | 100 |
+| 30 to 60 min | 70 |
+| 60 to 90 min | 40 |
+| 90 to 120 min | 15 |
+| 120+ min | 0 |
+
+**Specialist access — 35% weight**
+
+Specialist care — regional hospitals, teaching hospitals, university hospitals — captures the quality gap. Chronic disease management, surgery, maternal complications, and specialist referrals all require this tier. People reasonably expect to travel further for specialist care than for emergency care, so the time bands are wider.
+
+Time bands:
+
+| Band | Score |
+|------|-------|
+| Within 60 min | 100 |
+| 60 to 120 min | 70 |
+| 120 to 180 min | 40 |
+| 180+ min | 0 |
+
+**Any facility access — 15% weight**
+
+Basic primary care access still matters — for vaccinations, antenatal visits, malaria treatment, and first-contact care. But since almost every district in Ghana has a CHPS compound reasonably close by, this component does not differentiate districts as sharply as emergency or specialist access. It carries the lowest weight.
+
+Time bands: same as emergency (30-minute threshold).
+
+Each component produces a score between 0 and 100, weighted and combined into the final Journey Access Score.
+
+---
+
+## Score 2 — Supply Adequacy Score (0–100)
+
+**What it answers:** *When people arrive at a facility, is there enough capacity to serve them?*
+
+This score is built entirely from the E2SFCA results computed in Phase 3. The raw E2SFCA scores — which measure the ratio of facility supply to competing population demand — were normalised to a 0–100 scale. The district with the highest E2SFCA score receives 100. The district with the lowest receives 0. All other districts are scaled proportionally between them.
+
+No other components are mixed into this score. It purely measures whether supply meets demand, independent of how long it takes to get there.
+
+---
+
+## Final Composite Score (0–100)
+
+```
+Final Score = (Journey Access Score × 70%) + (Supply Adequacy Score × 30%)
+```
+
+Journey access carries more weight because physically getting to care is the primary barrier in Ghana. The supply adequacy score plays a supporting role — it matters, but a district cannot compensate for terrible road access with good supply.
+
+Critically, both sub-scores are always displayed alongside the composite score in the visualization. A policymaker looking at a district with a composite score of 45 needs to know whether that reflects a mobility problem (low journey score, adequate supply) or a capacity problem (good road access, overwhelmed facilities). The intervention required is completely different in each case.
+
+---
+
+## Categories
+
+| Score | Category |
+|-------|----------|
+| 80 to 100 | Thriving |
+| 60 to 79 | Decent |
+| 40 to 59 | Getting By |
+| 20 to 39 | Struggling |
+| 0 to 19 | Dire |
+
+---
+
+## District Score Distribution
+
+| Category | Districts |
+|----------|-----------|
+| Thriving | 26 |
+| Decent | 161 |
+| Getting By | 62 |
+| Struggling | 9 |
+| Dire | 2 |
+
+The distribution reflects a country where most districts are functional but fragile — 161 in the Decent band — with a long tail of districts that are genuinely failing their populations.
+
+---
+
+## Score Extremes
+
+| | District | Region | Composite Score |
+|-|----------|--------|-----------------|
+| Best | Bolga East | Upper East | 100.00 |
+| Worst | East Gonja | Savannah | 11.55 |
+
+Bolga East scores 100 because it sits directly adjacent to Bolgatanga Regional Hospital, giving it exceptional travel times to emergency and specialist care, combined with strong supply adequacy for its relatively small population.
+
+East Gonja scores 11.55 because zero percent of its population can reach emergency care within 30 minutes, 71.8% take over 2 hours, 79.5% of all journeys happen on dirt roads, and E2SFCA supply adequacy is near zero. It is failing on every dimension simultaneously.
+
+---
+
+## Regional Scores
+
+Computed directly from population-level data — not as an average of district scores — so that every person counts equally regardless of which district they live in.
+
+| Region | Journey Access | Supply Adequacy | Composite | Category |
+|--------|---------------|-----------------|-----------|----------|
+| Upper East | 86.10 | 91.04 | 87.58 | Thriving |
+| Upper West | 66.86 | 100.00 | 76.80 | Decent |
+| Greater Accra | 96.62 | 20.07 | 73.66 | Decent |
+| Ahafo | 85.09 | 39.43 | 71.39 | Decent |
+| Bono | 77.94 | 44.44 | 67.89 | Decent |
+| Volta | 88.64 | 11.11 | 65.38 | Decent |
+| Western North | 65.65 | 59.86 | 63.91 | Decent |
+| Western | 73.28 | 37.99 | 62.69 | Decent |
+| Central | 86.87 | 3.58 | 61.88 | Decent |
+| North East | 71.29 | 20.07 | 55.92 | Getting By |
+| Ashanti | 78.14 | 0.00 | 54.70 | Getting By |
+| Northern | 73.06 | 6.45 | 53.08 | Getting By |
+| Eastern | 70.18 | 6.09 | 50.95 | Getting By |
+| Oti | 67.22 | 6.45 | 48.99 | Getting By |
+| Bono East | 52.66 | 13.26 | 40.84 | Getting By |
+| Savannah | 54.10 | 6.81 | 39.91 | Struggling |
+
+Two patterns emerge from this table that have direct policy implications.
+
+**Northern regions struggle with mobility.** Savannah, Bono East, and Oti score poorly on Journey Access — meaning road infrastructure and facility placement are the primary barrier. The intervention required is physical: more facilities in underserved locations, better roads, or mobile health units.
+
+**Southern regions struggle with supply.** Greater Accra has an exceptional Journey Access score of 96.62 — people can reach facilities quickly. But its Supply Adequacy score is only 20.07, because those facilities are overwhelmed by the capital's massive population. Central region has a Journey Access score of 86.87 but a Supply Adequacy score of just 3.58. Ashanti's supply adequacy is literally zero. The intervention required here is different: more staff, more equipment, expanded capacity at existing facilities.
+
+This north-south pattern — mobility crisis in the north, capacity crisis in the south — is one of the most actionable findings of the entire project.
+
+---
+
+## Methodological Notes
+
+**Why road quality is excluded from the composite score:**
+Road conditions are already embedded in travel times via OSRM's speed assignments. A journey on a dirt track at 11 km/h already takes longer than the same distance on a major road at 45 km/h. Including road quality as a separate scoring component would penalise these districts twice for the same barrier. This decision was validated through a second-opinion review with Gemini (Google).
+
+**Why median travel time is excluded:**
+The time band percentages already capture the distribution of travel times within a district more precisely than a single median value. Two districts with the same median emergency travel time of 45 minutes can have very different distributions — one might have 40% within 30 minutes and 10% over 120 minutes, while the other has 0% within 30 minutes and everyone clustered around 45 minutes. The bands capture this distinction. The median does not.
+
+**Why E2SFCA is kept as a separate sub-score:**
+Mixing E2SFCA with travel time metrics in a single weighted average would compare apples and oranges. Travel time measures the mobility barrier. E2SFCA measures the capacity barrier. They answer different questions and require different policy responses. Keeping them as separate sub-scores — always displayed alongside the composite — ensures policymakers can identify which barrier is driving a district's low score.
+
+**On the geometric mean alternative:**
+A geometric mean would prevent a strong score in one component from masking a total failure in another. However, since both sub-scores are always displayed alongside the composite, policymakers can see the underlying breakdown directly. The linear weighted average was retained for its interpretability and transparency.
+
+---
+
+## Files Produced — Phase 4
+
+| File | Description |
+|------|-------------|
+| `district_accessibility_scores.csv` | 260 districts × 42 columns — all time bands, road breakdowns, sub-scores, composite scores, and categories |
+| `region_summary.csv` | 16 regions × 57 columns — same metrics at regional level, plus best and worst district per region |
+| `district_scores.json` | District data in JSON format, ready for the visualization |
+| `region_scores.json` | Region data in JSON format, ready for the visualization |
+
+---
+
+
 
 ### Current Status
 
@@ -568,8 +867,6 @@ The master dataset is clean, validated, and ready for analysis:
 - Only missing values are rural data for 11 fully urban districts (correct behavior)
 
 🔜 **Phase 2 — Exploratory Analysis - COMPLETE**
-
-## Summary of Key Findings from phase 2
 
 - 67% of all healthcare facilities in Ghana are basic CHPS compounds
 - Central region has the worst facility-to-population ratio at 2.08 per 10,000 people
