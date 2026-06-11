@@ -547,81 +547,134 @@ The updated version — with all road types included and a 120-minute cutoff —
 
 Travel Time Analysis & Journey Breakdown
 
-### Nearest Facility Travel Times — All 7 Facility Groupings
+# Phase 3 — Travel Time Analysis & Journey Breakdown
 
 With the E2SFCA complete, the next step was to answer a more direct question: how long does it actually take each person in Ghana to reach the nearest healthcare facility — and how does that change depending on what type of care they need?
 
-I defined seven facility groupings for this analysis:
+But travel time alone does not tell the full story. A journey of 35 minutes on smooth tarmac in Accra is not the same as 35 minutes on a dirt track in Savannah that floods in the rainy season, that no ambulance will attempt at night, and that destroys vehicle suspensions. The number on paper is the same. The lived reality is completely different.
+
+This phase therefore has two parts: computing the travel times themselves, and then breaking down what those journeys actually look like by road type.
+
+---
+
+## The Seven Facility Groupings
+
+I defined seven facility groupings for this analysis, each representing a different level of care:
 
 | Grouping | Facilities | What it includes |
 |----------|-----------|-----------------|
 | Any | 9,978 | All facilities |
 | CHPS | 6,733 | CHPS compounds only |
 | Maternity | 6,981 | CHPS + maternity homes |
-| Outpatient | 2,237 | Clinics + health centres + hospitals |
-| Emergency | 726 | All hospitals |
+| Outpatient | 2,991 | Clinics + health centres + all hospitals |
+| Emergency | 847 | All hospitals |
 | Specialist | 28 | Regional + teaching + university hospitals |
 | Psychiatric | 5 | Psychiatric hospitals only |
 
-For each of the 278,001 population grid cells, I calculated the travel time to the nearest facility in each grouping using a KD-Tree spatial index to identify the 10 nearest candidates by straight-line distance, then OSRM (Open Source Routing Machine) to compute exact road network travel times. OSRM was run locally via Docker using the latest Ghana OSM extract.
+The groupings are deliberately nested and overlapping, not mutually exclusive. A hospital appears in Any, Emergency, and Specialist. A CHPS appears in Any, CHPS, and Maternity. This is intentional — the question for each grouping is: how long does it take to reach the nearest facility of this specific type?
 
-The computation used a two-stage approach: first, the KD-Tree identified the 10 nearest candidates to avoid routing to every facility in the country; then OSRM confirmed the true fastest route among those candidates via road. This reduced routing calls from billions to approximately 2.78 million while preserving accuracy.
-
-Total computation time: approximately 4.5 hours across all 7 groupings. Zero failures across all 278,001 population points for all groupings.
+**A note on specialist facility classification:** The specialist grouping uses the Ghana Health Service's own classification of facilities as Regional Hospital, Teaching Hospital, or University Hospital/Clinic. Some facilities in this category may reflect GHS platform classification conventions rather than strict clinical specialist capacity. For example, NKWANTA-NANDO CHPS appears in the GHS data as a Teaching Hospital. These have been used as-is with this caveat noted. A manual audit and reclassification of the specialist tier is identified as future work.
 
 ---
 
-### Key Findings — Travel Time by Facility Type
+## The Routing Methodology — KD-Tree + OSRM Table API
 
-The results revealed a dramatic collapse in accessibility as the required level of care increases:
+For each of the 278,001 population grid cells, I needed to find the travel time to the nearest facility in each grouping. Routing from every population point to every facility would require billions of individual computations — computationally impossible. I used a two-stage approach to make this tractable while preserving accuracy.
 
-| Facility Type | Within 30 min | Within 60 min | Median travel time |
-|---------------|---------------|---------------|--------------------|
-| Any facility | 90.6% | 97.6% | 6.8 min |
-| CHPS | 89.8% | 97.5% | 7.8 min |
-| Maternity | 89.8% | 97.5% | 7.8 min |
-| Outpatient | 72.6% | 91.9% | 17.3 min |
-| Emergency | 42.1% | 74.6% | 35.3 min |
-| Specialist | 6.6% | 20.9% | 109.4 min |
-| Psychiatric | 0.9% | 3.5% | 265.5 min |
+### Stage 1 — KD-Tree Candidate Selection
 
-The headline statistic — that 90.6% of Ghanaians can reach a healthcare facility within 30 minutes — is technically accurate. But it is deeply misleading. That facility is almost always a CHPS compound: a single room, one community health worker, limited supplies, no doctor, no surgery, no emergency equipment.
+For each population point, I used a KD-Tree spatial index to find the K nearest facilities by straight-line distance. This gives a candidate shortlist to pass to the router.
 
-The moment you need real care, the numbers collapse. Only 42.1% of Ghanaians can reach emergency care within 30 minutes. The median Ghanaian is 35 minutes from the nearest hospital — already past the internationally recognised golden hour for emergency intervention. For specialist care, the median travel time is 109 minutes. For psychiatric care, it is 265 minutes — over four hours. Only 0.9% of the population can reach a psychiatric hospital within 30 minutes.
+**Why K=20 and not K=10:**
 
-This is the central finding of the project: Ghana's headline accessibility statistic conceals a catastrophic gap between primary care proximity and meaningful healthcare access.
+The original computation used K=10. A sensitivity test on 200 sample points revealed that K=10 was finding the wrong nearest facility for 3.5% of points, with a maximum error of 74.88 minutes. This happens because Ghana has lungulungu roads — winding routes that go around rivers, hills, and forests. The nearest facility by straight line is not always the nearest by road. A facility 2km away by straight line might be 90 minutes away by road if there is a river between them, while a facility 8km away by straight line might be reachable in 12 minutes on a direct tarmac road.
 
----
+I tested K=10, K=20, K=50, and K=100:
+- K=20 fixed all serious errors that K=10 missed (3.5% of points, up to 74.88 minutes)
+- K=50 and K=100 found no additional improvements over K=20
+- K=20 is the sweet spot — wide enough to catch all meaningful cases, no wasted computation beyond that
 
-### Worst Districts for Emergency Access
+The practical implication: a 74-minute error in emergency access is the difference between life and death. K=20 was worth the additional computation.
 
-Five districts stand out as the most critically underserved for emergency care:
+### Stage 2 — OSRM Table API Routing
 
-| District | Region | Avg emergency travel time | % within 30 min |
-|----------|--------|--------------------------|-----------------|
-| East Gonja | Savannah | 139 min | 0.0% |
-| Kwahu Afram Plains South | Eastern | 129 min | 1.1% |
-| North Gonja | Savannah | 108 min | 0.0% |
-| Sekyere Afram Plains North | Ashanti | 95 min | 0.0% |
-| Wa East | Upper West | 92 min | 2.2% |
+Rather than making 20 separate OSRM route calls per population point (which would have taken approximately 174 hours total), I used OSRM's Table API. This sends one request per population point containing:
+- 1 origin (the population point)
+- 20 destinations (the KD-Tree candidates)
 
-East Gonja in the Savannah region is the most severe case. Not a single person in the entire district can reach emergency care within 30 minutes. The average journey to the nearest hospital takes 139 minutes — over two hours — through a road network that is 79.5% dirt tracks and unpaved roads.
+OSRM returns all 20 travel times at once, routing along the actual Ghana road network — accounting for road types, speeds, and connectivity. It cannot cross a river without a bridge. It cannot take a shortcut through a forest. It uses the same Ghana-corrected road speeds described in Phase 3's E2SFCA section.
 
----
+This approach is 15x faster than separate route calls while maintaining full routing accuracy.
 
-### Journey Breakdown — Road Type Analysis
+**For each population point and each grouping, I recorded:**
+- `nearest_min` — the travel time to the true nearest facility by road
+- `nearest_mean` — the average travel time across the 20 candidates
+- `nearest_max` — the travel time to the furthest of the 20 candidates
+- `nearest_fac_name`, `nearest_fac_type`, `nearest_fac_lon`, `nearest_fac_lat` — the identity and location of the nearest facility
 
-Knowing travel times tells us how long the journey takes. But it does not tell us what that journey is actually like. To answer this, I traced the route from every population point to its nearest facility and broke the journey down by road type.
-
-Using the OSRM route API with geometry annotations, I retrieved the full route geometry for all 278,001 population-to-facility journeys. For each route, I matched every segment of the path to the nearest road in the OSM shapefile using a pre-built KD-Tree on road midpoints. This spatial matching allowed me to assign each segment of each journey to one of five road type categories: major road, connecting road, urban road, rural unpaved, or walking.
-
-The total time attributed to each road type per journey was then summed to give a breakdown of how many minutes — and what percentage — of the average journey happens on each road type.
-
-Total computation time: approximately 85 minutes for all 278,001 points. Zero routing failures.
+Total computation time: approximately 11 hours for all 7 groupings. Zero failures.
 
 ---
 
-### Key Findings — Journey Breakdown
+## Key Findings — Travel Times
+
+The results reveal a dramatic and sobering collapse in accessibility as the required level of care increases:
+
+| Facility Type | Within 30 min | Mean travel time |
+|---------------|---------------|-----------------|
+| Any facility | 90.7% | 12.2 min |
+| CHPS | 89.8% | 13.1 min |
+| Maternity | 89.9% | 13.1 min |
+| Outpatient | 73.5% | 24.2 min |
+| Emergency | 46.7% | 41.2 min |
+| Specialist | 6.6% | 117.7 min |
+
+**A critical note on wording:** These are cell-weighted percentages. Each of the 278,001 population grid cells is treated as one unit. The correct phrasing is: *"X% of Ghanaians live in areas within 30 minutes of..."* — not *"X% of Ghanaians can reach..."*. This is standard spatial analysis methodology: the cell represents a populated area, and residents of that area inherit its accessibility characteristics. This is how the WHO, the Lancet Commission on Global Surgery, and the majority of spatial health accessibility literature frame these statistics.
+
+The headline statistic — that 90.7% of Ghanaians live in areas within 30 minutes of a healthcare facility — is technically accurate. But it is deeply misleading. That facility is almost always a CHPS compound: a single room, one community health worker, limited supplies, no doctor, no surgery, no emergency equipment.
+
+The moment you need real care, the numbers collapse. Only 46.7% of Ghanaians live in areas within 30 minutes of a hospital. The mean travel time to the nearest emergency facility is 41.2 minutes — already past the internationally recognised golden hour for emergency intervention. For specialist care, the mean travel time is 117.7 minutes. The nearest specialist hospital is nearly two hours away for the average Ghanaian.
+
+---
+
+## Worst Districts for Emergency Access
+
+Some districts are not just underserved — they are in crisis:
+
+| District | Region | Mean emergency time | Min time | Max time | Within 30 min |
+|----------|--------|---------------------|----------|----------|---------------|
+| East Gonja | Savannah | 139 min | 46.8 min | 198 min | 0.0% |
+| Kwahu Afram Plains South | Eastern | 129 min | 18.0 min | 252 min | 1.1% |
+| North Gonja | Savannah | 108 min | — | — | 0.0% |
+
+East Gonja is the starkest case in the entire dataset. Not a single person in the entire district can reach emergency care within 30 minutes. Even the most favourably located person in the district — the one with the shortest travel time — takes 46.8 minutes. The worst off takes 198 minutes — over three hours. The mean is 139 minutes.
+
+Kwahu Afram Plains South tells a different but equally alarming story. The minimum travel time is 18 minutes — so some people are relatively well served. But the maximum is 252 minutes — over four hours. Within one district, the gap between the best and worst served population is 234 minutes. That level of internal inequality within a single administrative unit is extreme.
+
+---
+
+## Journey Breakdown — What the Travel Time Actually Feels Like
+
+### Why journey breakdown matters
+
+OSRM gives us travel times calculated using Ghana-corrected road speeds. A 35-minute emergency journey has already been computed accounting for the fact that some of it is on dirt tracks at 11 km/h and some of it is on a highway at 45 km/h.
+
+But the number alone does not communicate what that 35 minutes is like. A 35-minute journey that is 90% major roads is predictable, reliable, and navigable by an ambulance at night. A 35-minute journey that is 80% rural unpaved roads becomes much longer when it rains. Ambulances may refuse to attempt it. The vehicle may break down. The road may be washed out.
+
+To expose this gap between the number on paper and the lived reality, I traced the actual route for each population point to its nearest facility and broke it down by road type.
+
+### Computation method
+
+Using the OSRM route API with full geometry and duration annotations, I retrieved the complete route path for each population point. For each route segment, I matched the segment midpoint to the nearest road in the OSM shapefile using a pre-built KD-Tree. This allowed me to assign each segment to one of five road type categories and attribute the corresponding travel time to that category.
+
+I computed journey breakdowns for three facility types:
+- **Any facility** — to understand the baseline daily access journey
+- **Emergency facility** — to understand what rushing to hospital actually looks like
+- **Specialist facility** — to understand the longest, hardest journeys
+
+Total computation time: approximately 15 hours for all three breakdowns across 278,001 population points. One failure across all points.
+
+### National findings — journey to nearest ANY facility
 
 | Road Type | Average time | % of journey |
 |-----------|-------------|--------------|
@@ -631,32 +684,76 @@ Total computation time: approximately 85 minutes for all 278,001 points. Zero ro
 | Urban road | 0.5 min | 2.3% |
 | Walking | ~0 min | ~0% |
 
-Nearly two thirds of the average Ghanaian's journey to a healthcare facility — 64.8% — happens on dirt tracks and unpaved rural roads. These are roads where vehicles travel at 5 to 20 km/h. Roads that become impassable in the rainy season. Roads that no ambulance will travel down at night.
+Nearly two thirds of the average Ghanaian's journey to the nearest healthcare facility — 64.8% — happens on dirt tracks and unpaved rural roads. Roads that travel at 5 to 20 km/h. Roads that become impassable in the rainy season. Roads that no ambulance will attempt at night.
 
-The road speed assignments used in this analysis reflect Ghana-specific conditions:
+### National findings — journey to nearest EMERGENCY facility
 
-| Road category | Average speed |
-|--------------|---------------|
-| Major road | 45 km/h |
-| Connecting road | 28 km/h |
-| Urban road | 20 km/h |
-| Rural unpaved | 11 km/h |
-| Walking | 4 km/h |
+| Road Type | Average time | % of journey |
+|-----------|-------------|--------------|
+| Rural unpaved | 17.8 min | 43.4% |
+| Connecting road | 14.6 min | 35.7% |
+| Major road | 7.7 min | 18.8% |
+| Urban road | 0.9 min | 2.1% |
+| Walking | 0.0 min | 0.0% |
 
-At the district level, the variation in road quality is extreme. Ayawaso Central in Greater Accra spends 100% of its average journey on urban roads, with zero dirt road time. Akatsi North in the Volta Region spends 88.1% of its journey on dirt roads. Tatale Sanguli in Northern Region: 87.3%. These are not just numbers — they represent the physical reality of what it means to be sick in different parts of Ghana.
+The emergency journey breakdown reveals something important: when people need to reach a hospital urgently, 43.4% of that journey is still on dirt roads. The journey is not just long — it is physically arduous, navigating the same unpaved infrastructure that defines everyday life in much of Ghana.
+
+### National findings — journey to nearest SPECIALIST facility
+
+| Road Type | Average time | % of journey |
+|-----------|-------------|--------------|
+| Major road | 63.6 min | 54.2% |
+| Connecting road | 33.0 min | 28.2% |
+| Rural unpaved | 19.1 min | 16.3% |
+| Urban road | 1.3 min | 1.1% |
+| Walking | 0.3 min | 0.2% |
+
+The specialist journey tells a completely different story. 54.2% of the average specialist journey happens on major roads — because regional hospitals and teaching hospitals are located in major cities that are anchored to the national highway network. The journey to a specialist is long (117.7 minutes mean) but it is mostly on better roads.
+
+### The insight these three breakdowns reveal together
+
+Emergency journeys are chaotic — 43% dirt roads because you take whatever route gets you there fastest, regardless of surface. Specialist journeys are long but more structured — 54% major roads because those hospitals are far away but connected to the highway network. The everyday journey to the nearest CHPS is the worst of all — 64.8% dirt roads, because those facilities are scattered throughout rural communities and reached almost entirely by unpaved tracks.
+
+Three completely different access realities. The travel time alone would never reveal this.
 
 ---
 
-### Files Produced — Phase 3
+## District-Level Road Quality Variation
+
+The national averages mask extreme variation at district level. Some districts have almost no dirt roads in their healthcare journeys. Others have almost nothing else.
+
+**Most dirt-road dependent districts (journey to any facility):**
+- Akatsi North (Volta): 88.1% rural unpaved
+- Tatale Sanguli (Northern): 87.3% rural unpaved
+- Nanumba South (Northern): 83.4% rural unpaved
+- Sawla-Tuna-Kalba (Savannah): 82.0% rural unpaved
+- East Gonja (Savannah): 79.5% rural unpaved
+
+**Least dirt-road dependent districts:**
+- Ayawaso Central (Greater Accra): 100% urban roads
+- Old Tafo (Ashanti): 86.5% urban roads
+- Ayawaso East (Greater Accra): 73.7% urban roads
+
+A person in Ayawaso Central travels their entire healthcare journey on urban roads. A person in Akatsi North travels 88% of their journey on dirt. Same country. Same national health system. Completely different physical reality.
+
+---
+
+## Files Produced — Phase 3
 
 | File | Description |
 |------|-------------|
-| `nearest_facility_times.csv` | Travel times to all 7 facility groupings for 278,001 population points |
-| `journey_breakdown.csv` | Road type breakdown for all 278,001 population points |
-| `master_population_data.csv` | Master file — 278,001 rows × 25 columns combining all Phase 3 outputs with district and region labels |
-| `travel_time_summary.csv` | National summary statistics by facility grouping |
+| `master_population_data_v2.csv` | 278,001 rows × 49 columns — the complete master file |
+| `nearest_any_times_v2.csv` | K=20 travel times for any facility grouping |
+| `nearest_chps_times_v2.csv` | K=20 travel times for CHPS grouping |
+| `nearest_maternity_times_v2.csv` | K=20 travel times for maternity grouping |
+| `nearest_outpatient_times_v2.csv` | K=20 travel times for outpatient grouping |
+| `nearest_emergency_times_v2.csv` | K=20 travel times for emergency grouping |
+| `nearest_specialist_times_v2.csv` | K=20 travel times for specialist grouping |
+| `district_travel_times.csv` | Mean travel times per district for all four key facility types |
 
-The master population dataset (`master_population_data.csv`) is the single most complete record produced by this project. Each row represents one 1km population grid cell and contains: coordinates, region and district assignment, population count, travel times to all 7 facility types, nearest facility name and type, journey breakdown by all 5 road categories, and the E2SFCA accessibility score.
+The master population dataset `master_population_data_v2.csv` is the single most complete record produced by this project. Each row represents one 1km population grid cell and contains: coordinates, region and district assignment, population count, K=20 travel times (min, mean, max) to all 7 facility types, nearest facility identity and location, journey breakdown by road type for any facility, emergency facility, and specialist facility routes, and the E2SFCA accessibility score.
+
+
 
 ---
 
