@@ -749,54 +749,49 @@ A person in Ayawaso Central travels their entire healthcare journey on urban roa
 | `nearest_specialist_times_v2.csv` | K=20 travel times for specialist grouping |
 | `district_travel_times.csv` | Mean travel times per district for all four key facility types |
 
-The master population dataset `master_population_data_v2.csv` is the single most complete record produced by this project. Each row represents one 1km population grid cell and contains: coordinates, region and district assignment, population count, K=20 travel times (min, mean, max) to all 7 facility types, nearest facility identity and location, journey breakdown by road type for any facility, emergency facility, and specialist facility routes, and the E2SFCA accessibility score.
-
-
 
 ---
-
 # Phase 4 — Composite Accessibility Index
 
-With all the computational phases complete, the final analytical step was to synthesise everything into a single, transparent, and defensible accessibility score for each of Ghana's 260 districts and 16 regions.
+With all computational phases complete, the final analytical step was to synthesise everything into a single, transparent, and defensible accessibility score for each of Ghana's 260 districts and 16 regions.
 
-The challenge with composite scoring is that it is easy to build an index that looks rigorous but masks its assumptions. I wanted every weight, every threshold, and every methodological decision to be openly documented — so that a policymaker who disagrees with a weighting can understand exactly what they are disagreeing with and why.
-
-The framework went through multiple iterations, including a second-opinion review with another AI model (Gemini), before arriving at the final design described here.
+The challenge with composite scoring is that it is easy to build an index that looks rigorous but masks its assumptions. Every weight, every threshold, and every methodological decision in this framework is openly documented — so that a policymaker who disagrees with a weighting can understand exactly what they are disagreeing with and why.
 
 ---
 
-## The Two-Score Framework
+## Why Three Scores
 
-The most important methodological decision was to separate the composite score into two fundamentally different sub-scores rather than collapsing everything into one number.
+Healthcare accessibility is not one thing. It has three distinct dimensions that require separate measurement:
 
-Healthcare accessibility has two distinct barriers:
+**The mobility barrier** — Can people physically get to a facility? How long does it take?
 
-**The mobility barrier** — Can people physically get to a facility? This is about travel time and road conditions.
+**The journey quality barrier** — What is the journey actually like? A 35-minute journey on tarmac is not the same as a 35-minute journey on a dirt track that floods in the rainy season, that ambulances will not attempt at night, and that becomes impassable for weeks at a time.
 
-**The capacity barrier** — When people arrive, is there enough to serve them? This is about supply relative to demand.
+**The capacity barrier** — When people arrive, is there enough to serve them? A facility might be nearby and on a good road, but completely overwhelmed by the population it serves.
 
-These two things are not the same. A district could have excellent road access to a nearby hospital that is completely overwhelmed with patients. A different district could have poor roads to a well-resourced facility with surplus capacity. Both have an accessibility problem, but the nature of the problem — and the policy solution — is completely different.
+Each of these barriers requires a completely different policy intervention:
+- Mobility problem → more facilities, better road placement, mobile health units
+- Journey quality problem → road infrastructure investment, all-season road construction
+- Capacity problem → more staff, more equipment, expanded facility funding
 
-Mixing these two dimensions into a single weighted average would obscure which problem a district is actually facing. So I kept them separate.
+Collapsing all three into a single number without exposing the sub-scores would hide which problem a district is actually facing. All three sub-scores are always displayed alongside the composite.
 
 ---
 
-## Score 1 — Journey Access Score (0–100)
+## Score 1 — Journey Access Score (0-100)
 
-**What it answers:** *How physically accessible is healthcare for people in this district?*
+**What it answers:** How long does it take to get to care?
 
-The Journey Access Score is built entirely from travel time data. It does not include road quality as a separate component — because road conditions are already embedded in the travel times themselves. OSRM assigns slow speeds to dirt tracks and walking paths, which means a journey on unpaved roads already takes longer and therefore falls into a worse time band. Including road quality separately would be double-counting the same barrier.
-
-The score has three components:
+The Journey Access Score is built from travel time band scores for three facility types, weighted by clinical urgency.
 
 **Emergency access — 50% weight**
 
-Emergency care is life or death. Missing the 30-minute golden hour for trauma, stroke, or obstetric emergency has direct mortality consequences. Emergency access carries the largest weight in the score.
+Emergency care is life or death. Missing the 30-minute golden hour for trauma, stroke, or obstetric emergency has direct mortality consequences. Emergency access carries the highest weight.
 
 Time bands:
 
-| Band | Score |
-|------|-------|
+| Travel time | Band score |
+|-------------|-----------|
 | Within 30 min | 100 |
 | 30 to 60 min | 70 |
 | 60 to 90 min | 40 |
@@ -809,8 +804,8 @@ Specialist care — regional hospitals, teaching hospitals, university hospitals
 
 Time bands:
 
-| Band | Score |
-|------|-------|
+| Travel time | Band score |
+|-------------|-----------|
 | Within 60 min | 100 |
 | 60 to 120 min | 70 |
 | 120 to 180 min | 40 |
@@ -818,45 +813,112 @@ Time bands:
 
 **Any facility access — 15% weight**
 
-Basic primary care access still matters — for vaccinations, antenatal visits, malaria treatment, and first-contact care. But since almost every district in Ghana has a CHPS compound reasonably close by, this component does not differentiate districts as sharply as emergency or specialist access. It carries the lowest weight.
+Basic primary care access still matters — for vaccinations, antenatal visits, malaria treatment, and first-contact care. But since almost every district in Ghana has a CHPS compound nearby, this component does not differentiate districts as sharply as emergency or specialist access. It carries the lowest weight.
 
 Time bands: same as emergency (30-minute threshold).
 
-Each component produces a score between 0 and 100, weighted and combined into the final Journey Access Score.
-
----
-
-## Score 2 — Supply Adequacy Score (0–100)
-
-**What it answers:** *When people arrive at a facility, is there enough capacity to serve them?*
-
-This score is built entirely from the E2SFCA results computed in Phase 3. The raw E2SFCA scores — which measure the ratio of facility supply to competing population demand — were normalised to a 0–100 scale. The district with the highest E2SFCA score receives 100. The district with the lowest receives 0. All other districts are scaled proportionally between them.
-
-No other components are mixed into this score. It purely measures whether supply meets demand, independent of how long it takes to get there.
-
----
-
-## Final Composite Score (0–100)
-
+**Formula:**
 ```
-Final Score = (Journey Access Score × 70%) + (Supply Adequacy Score × 30%)
+Journey Access Score = (Emergency band score × 50%) +
+                       (Specialist band score × 35%) +
+                       (Any facility band score × 15%)
 ```
 
-Journey access carries more weight because physically getting to care is the primary barrier in Ghana. The supply adequacy score plays a supporting role — it matters, but a district cannot compensate for terrible road access with good supply.
+---
 
-Critically, both sub-scores are always displayed alongside the composite score in the visualization. A policymaker looking at a district with a composite score of 45 needs to know whether that reflects a mobility problem (low journey score, adequate supply) or a capacity problem (good road access, overwhelmed facilities). The intervention required is completely different in each case.
+## Score 2 — Journey Quality Score (0-100)
+
+**What it answers:** What does the journey actually feel like?
+
+This score uses the road type breakdowns computed in Phase 3 to measure the physical quality of the journey to healthcare. It is not about how long the journey takes — it is about what kind of infrastructure that time is spent on and how reliable, safe, and passable that infrastructure actually is.
+
+**The scoring grid:**
+
+For each journey type, I calculate the percentage of the journey spent on good roads (major road + connecting road + urban road) and bad roads (rural unpaved + walking). These two percentages are then scored using a lookup grid.
+
+| % of Journey | Good Roads Score | Bad Roads Score |
+|-------------|-----------------|-----------------|
+| 0 to 10% | 10 | 100 |
+| 11 to 30% | 40 | 70 |
+| 31 to 50% | 70 | 30 |
+| 50%+ | 100 | 0 |
+
+```
+Road Quality Score = (Good Roads Score + Bad Roads Score) / 2
+```
+
+The grid is designed so that scores never reach zero — a journey that is 100% dirt roads still scores 5/100, acknowledging that even an unpaved track represents some form of access. And scores scale smoothly enough that a 1-2% change in road mix does not cause a dramatic score cliff.
+
+**Pressure testing:**
+
+*65% good roads, 35% bad roads:*
+Good score 100 + Bad score 30 = 65/100. A mostly good journey with a rough final stretch. Fair.
+
+*85% good roads, 15% bad roads:*
+Good score 100 + Bad score 70 = 85/100. Fast highway trip with a brief unpaved connector. Near excellent.
+
+*25% good roads, 75% bad roads:*
+Good score 40 + Bad score 0 = 20/100. Mostly dirt tracks. Correctly flagged as a challenging route.
+
+**Journey Quality Score combines three journey types with the same weights as Journey Access:**
+
+```
+Journey Quality Score = (Emergency road quality × 50%) +
+                        (Specialist road quality × 35%) +
+                        (Any facility road quality × 15%)
+```
+
+Emergency journeys matter most — the road quality of an emergency journey has the most direct life-or-death implications. Specialist journeys matter significantly. Any-facility journeys provide baseline context.
 
 ---
 
-## Categories
+## Score 3 — Supply Adequacy Score (0-100)
+
+**What it answers:** When people arrive, is there enough capacity to serve them?
+
+This score is built entirely from the E2SFCA scores computed in Phase 3. The raw E2SFCA score for each population point measures the ratio of facility supply to competing population demand within a 120-minute catchment, weighted by distance decay.
+
+At the district level, I take the average E2SFCA score across all population points in the district. The district with the highest average E2SFCA score receives 100. The district with the lowest receives 0. All others are scaled proportionally between them.
+
+```
+Supply Adequacy Score = (district avg E2SFCA - national min) /
+                        (national max - national min) × 100
+```
+
+Supply adequacy is kept as its own independent score because it measures something fundamentally different from the journey scores. Travel time and road quality describe what happens on the way to care. Supply adequacy describes what happens when you arrive. A policymaker looking at a low composite score needs to know immediately whether the problem is getting there or being served — the intervention required is completely different in each case.
+
+**Note on E2SFCA scope:**
+The E2SFCA was computed across all 9,978 facilities combined. A single supply adequacy score is used — not separate scores by facility type. Facility-type-specific E2SFCA scores (emergency-only, specialist-only) would require additional computation and are identified as future work.
+
+---
+
+## The Final Composite Score
+
+```
+Final Composite = (Journey Access Score  × 25%) +
+                  (Journey Quality Score × 25%) +
+                  (Supply Adequacy Score × 50%)
+```
+
+**On the weights:**
+
+Journey access and journey quality together describe the journey to care — they each carry 25%, giving the journey a combined 50% weight. Supply adequacy describes what happens at the destination — it carries the remaining 50%.
+
+This equal split between journey and destination reflects a core principle: healthcare accessibility is not just about getting there. It is about being served when you arrive. A district where residents can reach a hospital in 15 minutes on smooth tarmac but where the hospital is so overwhelmed it cannot see patients is not truly accessible. The weights ensure that capacity failures are not masked by excellent road infrastructure.
+
+---
+
+## Category Names and Thresholds
 
 | Score | Category |
 |-------|----------|
-| 80 to 100 | Thriving |
-| 60 to 79 | Decent |
-| 40 to 59 | Getting By |
+| 80 to 100 | Top Tier |
+| 60 to 79 | Almost There |
+| 40 to 59 | Managing |
 | 20 to 39 | Struggling |
-| 0 to 19 | Dire |
+| 0 to 19 | Crisis |
+
+The category names were designed to communicate a clear and unambiguous hierarchy to any reader — including non-technical policymakers. Top Tier, Almost There, Managing, Struggling, and Crisis communicate both rank and severity without requiring any background in data analysis to interpret.
 
 ---
 
@@ -864,13 +926,13 @@ Critically, both sub-scores are always displayed alongside the composite score i
 
 | Category | Districts |
 |----------|-----------|
-| Thriving | 26 |
-| Decent | 161 |
-| Getting By | 62 |
-| Struggling | 9 |
-| Dire | 2 |
+| Top Tier | 5 |
+| Almost There | 57 |
+| Managing | 163 |
+| Struggling | 34 |
+| Crisis | 1 |
 
-The distribution reflects a country where most districts are functional but fragile — 161 in the Decent band — with a long tail of districts that are genuinely failing their populations.
+Only 5 districts achieve Top Tier status — all in Upper East and Upper West. The vast majority of Ghana (163 districts, 63%) are Managing — functional but fragile. 34 districts are Struggling with meaningful failures across multiple dimensions. East Gonja stands alone in Crisis.
 
 ---
 
@@ -878,61 +940,70 @@ The distribution reflects a country where most districts are functional but frag
 
 | | District | Region | Composite Score |
 |-|----------|--------|-----------------|
-| Best | Bolga East | Upper East | 100.00 |
-| Worst | East Gonja | Savannah | 11.55 |
+| Best | Bolga East | Upper East | 96.81 |
+| Worst | East Gonja | Savannah | 13.74 |
 
-Bolga East scores 100 because it sits directly adjacent to Bolgatanga Regional Hospital, giving it exceptional travel times to emergency and specialist care, combined with strong supply adequacy for its relatively small population.
+**Bolga East (96.81):**
+Bolga East sits directly adjacent to Bolgatanga Regional Hospital — one of Ghana's well-resourced regional facilities. This gives it exceptional travel times to both emergency and specialist care on relatively good road infrastructure. Its small population means E2SFCA supply adequacy is also strong. It scores near-perfectly on all three dimensions simultaneously.
 
-East Gonja scores 11.55 because zero percent of its population can reach emergency care within 30 minutes, 71.8% take over 2 hours, 79.5% of all journeys happen on dirt roads, and E2SFCA supply adequacy is near zero. It is failing on every dimension simultaneously.
+**East Gonja (13.74):**
+East Gonja is failing on every single dimension:
+
+- Journey Access (15.81): Zero percent of its population lives within 30 minutes of emergency care. Even the most favourably located person takes 46.8 minutes. The mean is 139 minutes. The worst is 198 minutes — over three hours.
+- Journey Quality (35.75): 79.5% of all journeys are on dirt roads.
+- Supply Adequacy (1.69): Almost no facility supply relative to population demand.
+
+There is no single fix for East Gonja. It needs more facilities, better roads, more healthcare workers, and sustained investment — simultaneously.
 
 ---
 
 ## Regional Scores
 
-Computed directly from population-level data — not as an average of district scores — so that every person counts equally regardless of which district they live in.
+Regional scores are computed directly from population-level data — not as an average of district scores — so that every person counts equally regardless of which district they live in.
 
-| Region | Journey Access | Supply Adequacy | Composite | Category |
-|--------|---------------|-----------------|-----------|----------|
-| Upper East | 86.10 | 91.04 | 87.58 | Thriving |
-| Upper West | 66.86 | 100.00 | 76.80 | Decent |
-| Greater Accra | 96.62 | 20.07 | 73.66 | Decent |
-| Ahafo | 85.09 | 39.43 | 71.39 | Decent |
-| Bono | 77.94 | 44.44 | 67.89 | Decent |
-| Volta | 88.64 | 11.11 | 65.38 | Decent |
-| Western North | 65.65 | 59.86 | 63.91 | Decent |
-| Western | 73.28 | 37.99 | 62.69 | Decent |
-| Central | 86.87 | 3.58 | 61.88 | Decent |
-| North East | 71.29 | 20.07 | 55.92 | Getting By |
-| Ashanti | 78.14 | 0.00 | 54.70 | Getting By |
-| Northern | 73.06 | 6.45 | 53.08 | Getting By |
-| Eastern | 70.18 | 6.09 | 50.95 | Getting By |
-| Oti | 67.22 | 6.45 | 48.99 | Getting By |
-| Bono East | 52.66 | 13.26 | 40.84 | Getting By |
-| Savannah | 54.10 | 6.81 | 39.91 | Struggling |
+| Region | Access | Quality | Supply | Composite | Category |
+|--------|--------|---------|--------|-----------|----------|
+| Upper East | 86.55 | 67.50 | 46.74 | 61.88 | Almost There |
+| Upper West | 72.36 | 65.25 | 50.23 | 59.52 | Managing |
+| Greater Accra | 97.15 | 87.25 | 18.84 | 55.52 | Managing |
+| Western North | 65.91 | 72.75 | 34.48 | 51.90 | Managing |
+| Ahafo | 85.33 | 67.50 | 26.39 | 51.40 | Managing |
+| Bono | 78.46 | 67.50 | 28.40 | 50.69 | Managing |
+| Western | 74.67 | 67.50 | 25.90 | 48.49 | Managing |
+| Volta | 89.11 | 67.50 | 15.27 | 46.79 | Managing |
+| North East | 75.72 | 67.50 | 18.81 | 45.21 | Managing |
+| Central | 88.39 | 67.50 | 12.22 | 45.08 | Managing |
+| Ashanti | 79.75 | 67.50 | 10.87 | 42.25 | Managing |
+| Northern | 73.86 | 67.50 | 13.46 | 42.07 | Managing |
+| Oti | 67.28 | 72.75 | 13.44 | 41.73 | Managing |
+| Eastern | 72.33 | 67.50 | 13.32 | 41.62 | Managing |
+| Savannah | 56.94 | 67.50 | 13.61 | 37.92 | Struggling |
+| Bono East | 52.87 | 50.25 | 16.04 | 33.80 | Struggling |
 
-Two patterns emerge from this table that have direct policy implications.
+**Two completely different policy problems emerge from this table.**
 
-**Northern regions struggle with mobility.** Savannah, Bono East, and Oti score poorly on Journey Access — meaning road infrastructure and facility placement are the primary barrier. The intervention required is physical: more facilities in underserved locations, better roads, or mobile health units.
+Northern regions — Savannah, Bono East, Northern, Oti — score poorly on Journey Access. Getting to care is the primary barrier. The required intervention is physical: more facilities in underserved locations, better road placement, mobile health units.
 
-**Southern regions struggle with supply.** Greater Accra has an exceptional Journey Access score of 96.62 — people can reach facilities quickly. But its Supply Adequacy score is only 20.07, because those facilities are overwhelmed by the capital's massive population. Central region has a Journey Access score of 86.87 but a Supply Adequacy score of just 3.58. Ashanti's supply adequacy is literally zero. The intervention required here is different: more staff, more equipment, expanded capacity at existing facilities.
+Southern regions — Greater Accra, Central, Volta, Ashanti — score well on Journey Access and Journey Quality but have critically low Supply Adequacy scores. Greater Accra has a Journey Access score of 97.15 — people can reach facilities quickly on excellent roads. But its Supply Adequacy is only 18.84, because those facilities are overwhelmed by the capital's massive population. Central scores 88.39 on access but only 12.22 on supply. Ashanti scores 10.87 on supply. The required intervention here is completely different: expanded facility capacity, more healthcare workers, more equipment.
 
-This north-south pattern — mobility crisis in the north, capacity crisis in the south — is one of the most actionable findings of the entire project.
+This north-south pattern — a mobility and infrastructure crisis in the north, a capacity and overcrowding crisis in the south — is one of the most actionable findings of the entire project.
+
+**Upper East — the surprising outlier:**
+
+Upper East is the only region in Almost There (61.88) and the only Top Tier districts in the country are in Upper East and Upper West. This surprises people who associate these regions with poverty and underdevelopment. The explanation is the combination of a relatively small population, a reasonably dense health facility network, reasonable road connectivity for the region's size, and the presence of Bolgatanga Regional Hospital as an anchor facility. Small populations and proportionate facility coverage produce strong supply adequacy scores that larger, more densely populated regions cannot match.
 
 ---
 
 ## Methodological Notes
 
-**Why road quality is excluded from the composite score:**
-Road conditions are already embedded in travel times via OSRM's speed assignments. A journey on a dirt track at 11 km/h already takes longer than the same distance on a major road at 45 km/h. Including road quality as a separate scoring component would penalise these districts twice for the same barrier. This decision was validated through a second-opinion review with Gemini (Google).
+**On mean vs median:**
+All travel time statistics use mean rather than median. The mean captures every person in the district — including those with extreme travel times at the margins. The median finds the middle person and ignores everyone worse off. For a project designed to hold policymakers accountable for the most underserved populations, mean is the more honest and powerful statistic.
 
-**Why median travel time is excluded:**
-The time band percentages already capture the distribution of travel times within a district more precisely than a single median value. Two districts with the same median emergency travel time of 45 minutes can have very different distributions — one might have 40% within 30 minutes and 10% over 120 minutes, while the other has 0% within 30 minutes and everyone clustered around 45 minutes. The bands capture this distinction. The median does not.
+**On E2SFCA normalization:**
+The Supply Adequacy Score is normalized to 0-100 using the minimum and maximum E2SFCA scores across all 260 districts. Scores are relative, not absolute — a score of 50 means the district is halfway between the worst and best served districts in Ghana, not that it meets some international standard of adequate supply. This is appropriate for comparative within-country analysis.
 
-**Why E2SFCA is kept as a separate sub-score:**
-Mixing E2SFCA with travel time metrics in a single weighted average would compare apples and oranges. Travel time measures the mobility barrier. E2SFCA measures the capacity barrier. They answer different questions and require different policy responses. Keeping them as separate sub-scores — always displayed alongside the composite — ensures policymakers can identify which barrier is driving a district's low score.
-
-**On the geometric mean alternative:**
-A geometric mean would prevent a strong score in one component from masking a total failure in another. However, since both sub-scores are always displayed alongside the composite, policymakers can see the underlying breakdown directly. The linear weighted average was retained for its interpretability and transparency.
+**On the Penchansky and Thomas framework:**
+This composite index measures three of the five dimensions in the Penchansky and Thomas healthcare accessibility framework: Accessibility (physical travel time), Availability (facility supply via E2SFCA), and a dimension of Accommodation (journey quality as a measure of infrastructure reliability). The remaining two dimensions — Affordability (transport costs, income constraints) and Acceptability (cultural and social fit of services) — are outside the scope of this analysis. Integrating economic and social variables following the full Penchansky and Thomas framework is the primary direction for Phase 2 of this project.
 
 ---
 
@@ -940,14 +1011,16 @@ A geometric mean would prevent a strong score in one component from masking a to
 
 | File | Description |
 |------|-------------|
-| `district_accessibility_scores.csv` | 260 districts × 42 columns — all time bands, road breakdowns, sub-scores, composite scores, and categories |
-| `region_summary.csv` | 16 regions × 57 columns — same metrics at regional level, plus best and worst district per region |
+| `district_accessibility_scores.csv` | 260 districts × 59 columns — all time bands, road breakdowns, three sub-scores, composite scores, and categories |
+| `region_summary.csv` | 16 regions × 51 columns — same metrics at regional level plus best and worst district per region |
 | `district_scores.json` | District data in JSON format, ready for the visualization |
+| `region_scores.json` | Region data in JSON format, ready for the visualization |
+| `district_travel_times.csv` | Mean travel times per district for any facility, outpatient, emergency and specialist |
+
+
 | `region_scores.json` | Region data in JSON format, ready for the visualization |
 
 ---
-
-
 
 ### Current Status
 
