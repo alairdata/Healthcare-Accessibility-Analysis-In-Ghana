@@ -26,11 +26,7 @@ Why it was built: To give policymakers data they can actually be held accountabl
 
 ---
 
-#DETAILED DOCUMENTATION
-
-**How accessible is healthcare in Ghana — and who's being left behind?**
-
----
+# DETAILED DOCUMENTATION
 
 ## The Story Behind This Project
 
