@@ -1022,51 +1022,99 @@ This composite index measures three of the five dimensions in the Penchansky and
 
 ---
 
-### Current Status
+# README Updates — All Remaining Sections
 
-✅ **Phase 1 — COMPLETE**
+---
 
-The master dataset is clean, validated, and ready for analysis:
-- **9,978 facilities** across **261 districts** in **16 regions**
-- All coordinates validated against official administrative boundary polygons
-- All district labels corrected to match 2019/2021 administrative boundaries
-- All distances recalculated with correct district centroids
-- Zero facilities over 100km from centroid
-- Only missing values are rural data for 11 fully urban districts (correct behavior)
+## UPDATED: Current Status
 
-🔜 **Phase 2 — Exploratory Analysis - COMPLETE**
+✅ **Phase 1 — Data Cleaning & Validation — COMPLETE**
 
-- 67% of all healthcare facilities in Ghana are basic CHPS compounds
-- Central region has the worst facility-to-population ratio at 2.08 per 10,000 people
-- Savannah region has the worst average distance at 32km — 7x further than Greater Accra
-- 44x gap between the best-served district (North East Gonja) and the worst-served (GA South)
-- GA South has 350,000 people and no hospital
-- 38 districts (15%) have zero hospitals of any kind
-- Private healthcare is concentrated in Greater Accra (35.6%) and virtually absent in Upper West (2.7%), Savannah (3.3%), and Oti (4.0%)
-- Rural areas have more facilities per person but only 4.8% are hospitals vs 12.7% in urban areas
-- Rural people travel nearly twice as far to reach healthcare (14.4km vs 7.6km)
+9,978 facilities across 260 districts in 16 regions. All coordinates validated against official administrative boundary polygons. All district labels corrected to match 2019/2021 administrative boundaries. Zero facilities over 100km from centroid.
 
-These findings established the foundation for the deeper spatial accessibility analysis using the Enhanced Two-Step Floating Catchment Area (E2SFCA) method, which would go beyond centroid-based distance estimates to model actual travel times across Ghana's road network.
+✅ **Phase 2 — Exploratory Analysis — COMPLETE**
 
-🔜 **Phase 3 — Six Accessibility Analyses - COMPLETE**
+Key findings: 67% of all facilities are basic CHPS compounds. 38 districts have zero hospitals. Private healthcare is concentrated in Greater Accra (35.6%) and virtually absent in Savannah (3.3%) and Upper West (2.7%). Rural areas have more facilities per person but only 4.8% are hospitals vs 12.7% in urban areas.
 
-🔜 **Phase 4 — Composite Accessibility Index**
+✅ **Phase 3 — Spatial Accessibility Analysis — COMPLETE**
 
-🔜 **Phase 5 — Scrollytelling Visualization**
+E2SFCA computed across 278,001 population points and 9,978 facilities using a 120-minute catchment and distance decay weights. K=20 OSRM travel times computed for all 7 facility groupings. Journey breakdowns computed for any facility, emergency facility, and specialist facility routes.
+
+✅ **Phase 4 — Composite Accessibility Index — COMPLETE**
+
+Three-score composite framework: Journey Access (25%) + Journey Quality (25%) + Supply Adequacy (50%). 260 districts and 16 regions scored and categorised. Best district: Bolga East (96.81). Worst district: East Gonja (13.74).
+
+✅ **Phase 5 — Scrollytelling Visualization — COMPLETE**
+
+Interactive scrollytelling visualization built in pure HTML/CSS/JavaScript using D3.js v7. Targeting policymakers and the public.
 
 ---
 
 ## Key Decisions Made
 
-1. **Zero duplicates** — user challenged assumption, analysis confirmed no true duplicates
-2. **Trust polygon over hospital labels** — for both region and district assignments
-3. **Create GUAN polygon manually** — rather than skipping the 17 facilities
-4. **Update district labels** — 1,030 facilities corrected to match current administrative boundaries
-5. **Keep all facilities** — nothing excluded, everything fixed
-6. **2SFCA with road network** — chosen as gold standard accessibility method for later phases
-7. **Scrollytelling** — chosen as final visualization format
+### Phase 1 decisions:
+1. Zero duplicates — analysis confirmed no true duplicates after defining duplication logic as same name + location AND less than 1km apart
+2. Trust polygon over hospital labels — for both region and district assignments
+3. Create GUAN polygon manually — rather than skipping the 17 facilities in the newly created district
+4. Update 1,030 district labels — corrected to match current administrative boundaries
+5. Keep all facilities — nothing excluded, all coordinate issues resolved
+6. Scrollytelling — chosen as final visualization format for policymaker impact
+
+### Phase 3 decisions:
+7. K=20 KD-Tree + OSRM Table API — sensitivity testing on 200 sample points showed K=10 missed the true nearest facility for 3.5% of points with maximum errors of 74.88 minutes. K=20 fixed all serious errors. K=50 and K=100 added nothing over K=20.
+8. OSRM Table API over separate route calls — one API call per population point returning all 20 candidate travel times simultaneously. 15x faster than 20 separate calls with identical accuracy.
+9. Journey breakdown computed for three route types — any facility, emergency facility, and specialist facility. Each tells a different story about the physical reality of healthcare access in Ghana.
+10. Cell weighted percentages with correct wording — each 1km population grid cell represents a populated area. Residents inherit that area's accessibility. Correct wording: "X% of Ghanaians live in areas within 30 minutes of..." not "X% of Ghanaians can reach...". This is standard spatial analysis methodology.
+11. Mean travel time over median — mean captures every person including those at the margins. Median finds the middle person and ignores everyone worse off. For a project holding policymakers accountable for the most underserved populations, mean is the more honest statistic.
+12. Include all road types including walking paths — districts like Tempane (82.9% walking paths) and Krachi Nchumuru (70.3%) depend heavily on non-vehicle paths. Excluding them would disproportionately hurt already underserved regions.
+13. Ghana-corrected road speeds — standard international speed assumptions are too generous for Ghana's actual road conditions. Speeds were reduced across all road types to reflect real travel conditions.
+
+### Phase 4 decisions:
+14. Three-score composite framework — Journey Access (25%) + Journey Quality (25%) + Supply Adequacy (50%). Three dimensions because mobility, journey quality, and capacity are fundamentally different barriers requiring different policy interventions.
+15. Supply adequacy weighted at 50% — journey access and journey quality together describe the journey to care (combined 50%). Supply adequacy describes what happens at the destination (50%). Healthcare accessibility is not just about getting there — it is about being served when you arrive.
+16. Option A scoring grid for journey quality — lookup grid based on percentage of journey on good roads vs bad roads. Scores never reach zero. Smooth enough that small changes in road mix do not cause dramatic score cliffs.
+17. Category names: Top Tier, Almost There, Managing, Struggling, Crisis — communicates clear hierarchy to non-technical policymakers without ambiguity.
+18. E2SFCA single score — not broken down by facility type. Single supply adequacy measure covering all facilities. Facility-type-specific E2SFCA is future work.
+19. Specialist facility classification used as-is — GHS platform classification of Regional Hospital, Teaching Hospital, and University Hospital/Clinic used without modification. Some mislabeled facilities noted with methodology caveat. Manual audit identified as future work.
 
 ---
+
+## UPDATED: Tech Stack
+
+| Tool | Purpose |
+|------|---------|
+| Python | Core analysis language |
+| Pandas | Data manipulation and cleaning |
+| GeoPandas | Geospatial operations and polygon validation |
+| Shapely | Geometry operations |
+| Selenium | Web scraping from Ghana Health Service platform |
+| FuzzyWuzzy | District name matching |
+| igraph | Road network graph construction and E2SFCA computation |
+| scipy (KD-Tree) | Spatial candidate selection for K=20 routing |
+| numpy | Numerical computation |
+| OSRM | Open Source Routing Machine — road network travel time computation |
+| Docker | Running OSRM locally via container |
+| WorldPop | Population density raster (1km resolution, 2020, normalized to 2021 census) |
+| GADM | Administrative boundary shapefiles (Level 1 regions, Level 2 districts) |
+| OpenStreetMap | Road network data (via Geofabrik Ghana extract) |
+| D3.js v7 | Interactive map and data visualization |
+| TopoJSON | Geographic boundary rendering in the browser |
+| Scrollama | Scrollytelling framework |
+| Jupyter Notebook | Development environment |
+| python-Levenshtein | Speed optimization for fuzzy matching |
+
+---
+
+### Technical Stack
+
+- Pure HTML, CSS, JavaScript — no React, no build tools, no server required
+- D3.js v7 — map rendering, data binding, transitions
+- TopoJSON v3 — geographic boundary rendering
+- Opens directly in browser as a single HTML file
+- Published via GitHub Pages
+
+---
+
 
 ## Data Quality Issues Found & Resolved
 
@@ -1082,24 +1130,45 @@ These findings established the foundation for the deeper spatial accessibility a
 | Sub-metropolitan rows in census data | 17 rows | Removed |
 | Census naming errors | 2 ("Mion District District", "Mophor Mpohor") | Fixed |
 
+---
+
+## NEW: Future Work — Phase 2
+
+This project measures three of the five dimensions in the Penchansky and Thomas healthcare accessibility framework:
+
+| Dimension | Status |
+|-----------|--------|
+| Accessibility — physical travel time | ✅ Measured |
+| Availability — facility supply (E2SFCA) | ✅ Measured |
+| Accommodation — journey quality | ✅ Measured |
+| Affordability — economic barriers | ❌ Phase 2 |
+| Acceptability — cultural and social barriers | ❌ Phase 2 |
+
+**Phase 2 will extend the framework to include:**
+
+**Affordability:**
+Can people actually pay to access care? Transport fares, consultation fees, and drug costs are significant barriers for many Ghanaians — particularly in low-income districts. Phase 2 will integrate district-level economic variables (poverty rates, household income from Ghana Statistical Service) to model the economic dimension of accessibility alongside the physical dimension.
+
+**Acceptability:**
+Do the available facilities meet the cultural and social needs of the population they serve? Language barriers, gender of healthcare providers, traditional medicine preferences, and community trust in the formal health system all influence whether people seek care even when it is physically and economically accessible. Phase 2 will review the literature to identify the most appropriate and data-available social variables for the Ghanaian context.
+
+**Facility-type specific E2SFCA:**
+The current E2SFCA score covers all 9,978 facilities combined. Phase 2 will compute separate E2SFCA scores for emergency facilities and specialist facilities, allowing a more granular supply adequacy measure that distinguishes between the availability of basic care, hospital care, and specialist care.
+
+Going full circle on the Penchansky and Thomas framework would make this one of the most comprehensive district-level healthcare accessibility analyses ever conducted for Ghana.
 
 ## Transparency Note
 
 > The project log in this README was originally narrated verbally and transcribed with the help of AI (ChatGPT for transcription, Claude for writing assistance). The analysis, data collection, validation decisions, and all technical work are entirely my own.
-
-## Status
-
-🟡 **In Progress** — Data cleaning and validation complete. Exploratory analysis and scrollytelling visualization underway.
 
 ## Author
 
 **Princilla Abena Koranteng**
 Data Scientist | Content Creator | [That Tech Girlie](https://www.linkedin.com/in/princilla-koranteng/)
 
-*Last updated: March 1, 2026*
+*Last updated: June 11, 2026*
 
 `#DataScience` `#HealthcareAnalysis` `#Ghana` `#GIS` `#GeoPandas` `#Python` `#ScrollyTelling` `#DataCleaning` `#SpatialAnalysis` `#PublicHealth` `#OpenData` `#2SFCA` `#PortfolioProject`
-
 
 ---
 
