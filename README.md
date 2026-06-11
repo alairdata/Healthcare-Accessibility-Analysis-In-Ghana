@@ -1,5 +1,32 @@
 # 🏥 Ghana Healthcare Accessibility Analysis
 
+---
+
+#TL:DR
+Ghana has nearly 10,000 healthcare facilities. Most of them can't save your life.
+Walk into almost any of them and you'll find a single room, one community health worker, and a box of malaria medication. No doctor. No surgery. No ambulance.
+Have a stroke? Difficult birth? Car accident?
+You're on your own — and the nearest hospital is, on average, 41 minutes away. On a dirt road. That floods in the rainy season. That no ambulance will attempt at night.
+For 200,000 Ghanaians, there is no hospital within two hours. By any road. At all.
+Meanwhile, MPs keep announcing projects. Regulatory bodies keep publishing plans. And nobody has had the data to call them out.
+Until now.
+
+What it is: A comprehensive spatial analysis of healthcare access across all 260 districts and 16 regions of Ghana, built from scratch using 9,978 facilities scraped from the Ghana Health Service platform.
+The core finding: Ghana looks well-served on paper — 90.7% of the population lives within 30 minutes of a facility. But that facility is almost always a basic CHPS compound staffed by one community health nurse with no surgery, no doctor, no emergency equipment. The moment you need real care, access collapses:
+
+Only 46.7% live within 30 minutes of a hospital
+Mean travel time to the nearest specialist is 117.7 minutes
+38 districts have zero hospitals entirely
+210,000+ people have no healthcare access within 2 hours by any road
+
+The north-south divide: Northern regions (Savannah, Bono East, Oti) struggle to get to care — too few facilities, long distances, mostly dirt roads. Southern regions (Greater Accra, Central, Ashanti) can reach facilities quickly but those facilities are overwhelmed — supply can't meet demand.
+The composite score: Each district gets three scores: how long the journey takes, what the journey is actually like (dirt roads vs tarmac), and whether there's enough capacity when you arrive. Best district: Bolga East (96.81/100). Worst: East Gonja (13.74/100) — failing on all three dimensions simultaneously.
+Why it was built: To give policymakers data they can actually be held accountable to, instead of vague promises.
+
+---
+
+#DETAILED DOCUMENTATION
+
 **How accessible is healthcare in Ghana — and who's being left behind?**
 
 ---
