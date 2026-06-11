@@ -2,7 +2,8 @@
 
 ---
 
-#TL:DR
+# TL:DR
+
 Ghana has nearly 10,000 healthcare facilities. Most of them can't save your life.
 Walk into almost any of them and you'll find a single room, one community health worker, and a box of malaria medication. No doctor. No surgery. No ambulance.
 Have a stroke? Difficult birth? Car accident?
