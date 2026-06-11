@@ -545,9 +545,7 @@ The updated version — with all road types included and a 120-minute cutoff —
 
 ---
 
-Travel Time Analysis & Journey Breakdown
-
-# Phase 3 — Travel Time Analysis & Journey Breakdown
+# Phase 3.1 — Travel Time Analysis & Journey Breakdown
 
 With the E2SFCA complete, the next step was to answer a more direct question: how long does it actually take each person in Ghana to reach the nearest healthcare facility — and how does that change depending on what type of care they need?
 
